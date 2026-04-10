@@ -16,6 +16,10 @@ export default function Dashboard() {
   const [isExecuting, setIsExecuting] = useState(false);
   const [executionLogs, setExecutionLogs] = useState("");
 
+  // States for the Crawler
+  const [crawlUrl, setCrawlUrl] = useState("https://example.com");
+  const [isCrawling, setIsCrawling] = useState(false);
+
   // Function to handle clicking a new card
   const handleCardSelect = (card: TrelloCard) => {
     setSelectedCard(card);
@@ -25,23 +29,44 @@ export default function Dashboard() {
     setExecutionLogs("");
   };
 
-  // The Mock AI Generator
-  const handleGenerateAI = () => {
+  // The Real AI Generator via Gemini
+  // The Real AI Generator with Ollama Fallback
+  const handleGenerateAI = async () => {
+    if (!selectedCard) return;
+
     setIsGenerating(true);
-    setExecutionLogs(""); // Clear previous logs
+    setExecutionLogs("Sending requirement and UI context to AI...\n");
 
-    // Simulate a 2.5-second delay from OpenAI
-    setTimeout(() => {
-      setGeneratedAC(
-        "1. Verify input field exists for target data.\n2. Verify system detects invalid format on blur or submit.\n3. Verify UI displays exact error text provided in requirements.\n4. Verify form submission is blocked if format is invalid.",
-      );
-      setGeneratedBDD(
-        "Feature: Requirement Validation\n\n  Scenario: Primary Negative Path\n    Given the user is on the target page\n    When the user enters invalid data format\n    Then the system should display an inline error message\n    And the submit button should remain disabled",
-      );
+    try {
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: selectedCard.title,
+          description: selectedCard.description,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setGeneratedAC(data.ac);
+        setGeneratedBDD(data.bdd);
+        setExecutionLogs(
+          (prev) =>
+            prev + `AI Generation Complete! ✅ (Powered by ${data.source})\n`,
+        );
+      } else {
+        setExecutionLogs(
+          (prev) => prev + "AI Generation Failed! ❌\n" + data.error,
+        );
+      }
+    } catch (error) {
+      setExecutionLogs((prev) => prev + "Network error connecting to AI.\n");
+    } finally {
       setIsGenerating(false);
-    }, 2500);
+    }
   };
-
   // The Playwright Execution Trigger
   const handleExecuteTests = async () => {
     if (!selectedCard || !generatedBDD) return;
@@ -77,6 +102,36 @@ export default function Dashboard() {
     }
   };
 
+  // The Crawler Execution Trigger
+  const handleCrawlApp = async () => {
+    setIsCrawling(true);
+    setExecutionLogs(`Crawling ${crawlUrl}...\n`);
+
+    try {
+      const response = await fetch("/api/crawl", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: crawlUrl, name: "Target App" }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setExecutionLogs(
+          (prev) => prev + `\nCrawl Complete! ✅\nKnowledge Bank updated.`,
+        );
+      } else {
+        setExecutionLogs((prev) => prev + `\nCrawl Failed! ❌\n` + data.error);
+      }
+    } catch (error) {
+      setExecutionLogs(
+        (prev) => prev + "\nNetwork Error occurred during crawl.",
+      );
+    } finally {
+      setIsCrawling(false);
+    }
+  };
+
   return (
     <div className="flex h-screen bg-gray-100 font-sans">
       {/* Sidebar navigation */}
@@ -105,6 +160,32 @@ export default function Dashboard() {
             Fetch Latest Cards
           </button>
         </header>
+
+        {/* App Knowledge Scanner */}
+        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-8 flex items-center gap-4">
+          <div className="flex-1">
+            <h3 className="font-semibold text-gray-700 mb-1">
+              Update App Knowledge Bank
+            </h3>
+            <p className="text-xs text-gray-500">
+              Extracts the accessibility tree for AI context.
+            </p>
+          </div>
+          <input
+            type="text"
+            value={crawlUrl}
+            onChange={(e) => setCrawlUrl(e.target.value)}
+            className="border border-gray-300 p-2 rounded w-64 text-sm"
+            placeholder="https://your-app.com"
+          />
+          <button
+            onClick={handleCrawlApp}
+            disabled={isCrawling}
+            className={`px-4 py-2 rounded text-white font-medium whitespace-nowrap transition-colors ${isCrawling ? "bg-slate-400 cursor-not-allowed" : "bg-slate-800 hover:bg-slate-700"}`}
+          >
+            {isCrawling ? "Scanning..." : "Scan URL 🔍"}
+          </button>
+        </div>
 
         {/* The Mock Queue List */}
         <div className="mb-8 flex gap-4 overflow-x-auto pb-4">
@@ -238,18 +319,6 @@ export default function Dashboard() {
                             : "Approve & Execute Playwright Tests 🚀"}
                         </button>
                       </div>
-
-                      {/* Live Execution Logs */}
-                      {executionLogs && (
-                        <div className="mt-4">
-                          <label className="block text-sm font-semibold text-gray-700 mb-1">
-                            Terminal Output
-                          </label>
-                          <pre className="w-full bg-slate-900 text-green-400 p-4 rounded text-xs overflow-x-auto whitespace-pre-wrap max-h-48 overflow-y-auto font-mono">
-                            {executionLogs}
-                          </pre>
-                        </div>
-                      )}
                     </div>
                   </div>
                 )}
@@ -257,6 +326,18 @@ export default function Dashboard() {
             ) : (
               <div className="flex-1 p-4 bg-gray-50 rounded border border-dashed border-gray-300 text-gray-500 flex items-center justify-center">
                 Waiting for requirement input...
+              </div>
+            )}
+
+            {/* Live Execution Logs (Moved outside the card selection logic so it shows crawler logs too) */}
+            {executionLogs && (
+              <div className="mt-4">
+                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                  Terminal Output
+                </label>
+                <pre className="w-full bg-slate-900 text-green-400 p-4 rounded text-xs overflow-x-auto whitespace-pre-wrap max-h-48 overflow-y-auto font-mono">
+                  {executionLogs}
+                </pre>
               </div>
             )}
           </div>
