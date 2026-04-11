@@ -11,6 +11,7 @@ export default function Dashboard() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedAC, setGeneratedAC] = useState("");
   const [generatedBDD, setGeneratedBDD] = useState("");
+  const [generatedSteps, setGeneratedSteps] = useState(""); // New state for Playwright code
 
   // States for Playwright Execution
   const [isExecuting, setIsExecuting] = useState(false);
@@ -23,13 +24,12 @@ export default function Dashboard() {
   // Function to handle clicking a new card
   const handleCardSelect = (card: TrelloCard) => {
     setSelectedCard(card);
-    // Clear out old AI and execution data when switching cards
     setGeneratedAC("");
     setGeneratedBDD("");
+    setGeneratedSteps("");
     setExecutionLogs("");
   };
 
-  // The Real AI Generator via Gemini
   // The Real AI Generator with Ollama Fallback
   const handleGenerateAI = async () => {
     if (!selectedCard) return;
@@ -52,6 +52,7 @@ export default function Dashboard() {
       if (data.success) {
         setGeneratedAC(data.ac);
         setGeneratedBDD(data.bdd);
+        setGeneratedSteps(data.steps); // Store the generated TypeScript code
         setExecutionLogs(
           (prev) =>
             prev + `AI Generation Complete! ✅ (Powered by ${data.source})\n`,
@@ -67,9 +68,15 @@ export default function Dashboard() {
       setIsGenerating(false);
     }
   };
+
   // The Playwright Execution Trigger
   const handleExecuteTests = async () => {
-    if (!selectedCard || !generatedBDD) return;
+    if (!selectedCard || !generatedBDD || !generatedSteps) {
+      setExecutionLogs(
+        (prev) => prev + "Error: Missing BDD or Step Definitions to execute.\n",
+      );
+      return;
+    }
 
     setIsExecuting(true);
     setExecutionLogs("Initializing Playwright Engine...\n");
@@ -81,6 +88,7 @@ export default function Dashboard() {
         body: JSON.stringify({
           title: selectedCard.title,
           bdd: generatedBDD,
+          steps: generatedSteps, // Passing the actual Playwright code to the API
         }),
       });
 
@@ -175,7 +183,7 @@ export default function Dashboard() {
             type="text"
             value={crawlUrl}
             onChange={(e) => setCrawlUrl(e.target.value)}
-            className="border border-gray-300 p-2 rounded w-64 text-sm"
+            className="border border-gray-300 p-2 rounded w-64 text-sm text-black"
             placeholder="https://your-app.com"
           />
           <button
@@ -243,7 +251,7 @@ export default function Dashboard() {
 
           {/* Card 2: AI Generation Workspace */}
           <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 min-h-[500px] flex flex-col">
-            <h3 className="text-lg font-semibold text-gray-700 mb-4">
+            <h3 className="text-lg font-semibold text-black mb-4">
               AI Generated Tests
             </h3>
 
@@ -253,7 +261,7 @@ export default function Dashboard() {
                 {!generatedAC && !isGenerating && (
                   <button
                     onClick={handleGenerateAI}
-                    className="bg-purple-600 text-white px-4 py-3 rounded-md hover:bg-purple-700 transition-colors font-semibold w-full flex justify-center items-center gap-2"
+                    className="bg-black text-white px-4 py-3 rounded-md hover:bg-gray-900 transition-colors font-semibold w-full flex justify-center items-center gap-2"
                   >
                     ✨ Generate AC & Test Cases with AI
                   </button>
@@ -269,28 +277,35 @@ export default function Dashboard() {
                 {generatedAC && !isGenerating && (
                   <div className="flex flex-col gap-4 flex-1">
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-1">
+                      <label className="block text-sm font-semibold text-black mb-1">
                         Acceptance Criteria
                       </label>
                       <textarea
-                        className="w-full p-3 border border-gray-300 rounded text-sm bg-gray-50 focus:bg-white focus:ring-2 focus:ring-purple-500 outline-none transition-all"
-                        rows={5}
+                        className="w-full p-3 border border-gray-300 rounded text-sm bg-gray-50 text-black focus:bg-white focus:ring-2 focus:ring-purple-500 outline-none transition-all"
+                        rows={4}
                         value={generatedAC}
                         onChange={(e) => setGeneratedAC(e.target.value)}
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-1">
+                      <label className="block text-sm font-semibold text-black mb-1">
                         BDD Scenarios (Gherkin)
                       </label>
                       <textarea
-                        className="w-full p-3 border border-gray-300 rounded text-sm bg-gray-50 focus:bg-white focus:ring-2 focus:ring-purple-500 outline-none transition-all font-mono"
-                        rows={7}
+                        className="w-full p-3 border border-gray-300 rounded text-sm bg-gray-50 text-black focus:bg-white focus:ring-2 focus:ring-purple-500 outline-none transition-all font-mono"
+                        rows={6}
                         value={generatedBDD}
                         onChange={(e) => setGeneratedBDD(e.target.value)}
                       />
                     </div>
+
+                    {/* Step Definitions Confirmation (Visual Cue) */}
+                    {generatedSteps && (
+                      <div className="text-[10px] text-green-600 font-mono bg-green-50 p-2 border border-green-200 rounded">
+                        Step Definitions generated & cached for execution.
+                      </div>
+                    )}
 
                     {/* Execution Controls */}
                     <div className="mt-auto pt-4 border-t flex flex-col gap-3">
@@ -300,6 +315,7 @@ export default function Dashboard() {
                           onClick={() => {
                             setGeneratedAC("");
                             setGeneratedBDD("");
+                            setGeneratedSteps("");
                             setExecutionLogs("");
                           }}
                         >
@@ -329,10 +345,10 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* Live Execution Logs (Moved outside the card selection logic so it shows crawler logs too) */}
+            {/* Live Execution Logs */}
             {executionLogs && (
               <div className="mt-4">
-                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                <label className="block text-sm font-semibold text-black mb-1">
                   Terminal Output
                 </label>
                 <pre className="w-full bg-slate-900 text-green-400 p-4 rounded text-xs overflow-x-auto whitespace-pre-wrap max-h-48 overflow-y-auto font-mono">

@@ -1,7 +1,1 @@
-Feature: Requirement Validation
-
-  Scenario: Primary Negative Path
-    Given the user is on the target page
-    When the user enters invalid data format
-    Then the system should display an inline error message
-    And the submit button should remain disabled
+Feature: Login Error Validation  Scenario: Display error message when invalid email format is used for login    Given I navigate to "Example Domain"    When I enter invalid email for login    Then error message "Invalid email format" is displayed below the input fieldScenario: Error message disappears when valid email format is used for login  Given I navigate to "Example Domain"  When I enter valid email for login  Then error message "Invalid email format" is not displayedScenario: Login form is still usable after invalid email format is detected  Given I navigate to "Example Domain"  When I enter invalid email for login  And I enter password for login  Then I am able to submit the login form

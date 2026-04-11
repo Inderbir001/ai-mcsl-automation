@@ -7,11 +7,12 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test:ai": "cucumber-js"
+    "test:ai": "cucumber-js tests/features/*.feature --require-module ts-node/register --require tests/steps/*.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "next": "16.2.3",
+    "openai": "^6.34.0",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
